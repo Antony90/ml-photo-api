@@ -7,7 +7,7 @@ training_dir = "./dataset/training/"
 testing_dir = "./dataset/testing/"
 models_dir = "./models/"
 
-epochs = 60
+epochs = 10
 validation_split = 0.15
 
 img_shape = (224, 224, 3)
@@ -33,18 +33,7 @@ validation_ds = keras.utils.image_dataset_from_directory(
     label_mode='categorical',
 )
 
-# # https://stackoverflow.com/questions/51125266/how-do-i-split-tensorflow-datasets/58452268#58452268
-# # Use 10% of the dataset for testing the final trained model
 
-# is_test = lambda a, _: a % 10 == 0
-# is_train = lambda a, b: not is_test(a, b)
-
-# recover = lambda _, b: b # revert from "enumerate" form to original
-
-# import numpy as np
-
-# train_ds = np.array(all_ds.enumerate().filter(is_train).map(recover))
-# test_ds = np.array(all_ds.enumerate().filter(is_test).map(recover))
 
 model = build_transfer_model(img_shape)
 model.summary()
