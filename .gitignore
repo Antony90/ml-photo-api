@@ -1,4 +1,6 @@
-dataset/*
-~
+dataset/training/*
+dataset/testing/*
+dataset/chromedriver.exe
+/local/
 __pycache__
 models/*
