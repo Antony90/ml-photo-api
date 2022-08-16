@@ -1,15 +1,19 @@
 from flask import Flask, request
 from flask_cors import CORS
+
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 import numpy as np
 
 from base64 import b64decode
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 from io import BytesIO
 import json
 
 # load model and category data
 model = tf.keras.models.load_model('./models/loss__0.33__acc__0.74')
+print(f"Loaded model")
 with open('./dataset/categories.json', 'r') as f:
     categories = json.loads(f.read())
 
@@ -24,29 +28,39 @@ def classify():
         # List of images encoded in base64
         img_list = data.get("images")
     except KeyError:
-        return "Missing parameter 'images'", 402
+        return "Missing parameter 'images'", 400
     
     if not type(img_list) == list:
-        return "Bad format: 'images' parameter must be a list", 402
-    
-    batch_size = len(img_list)
+        return "Bad format: 'images' parameter must be a list", 400
     
     # Holds all images in np array format with shape (160, 160)
     img_batch = []
     
     # Convert images from encoded base64 to np array format 
-    for i, img_data in enumerate(img_list):
+    for img_data in img_list:
         try:
             img_base64 = img_data.split(",")[1]
         except AttributeError:
-            return f"Entry in 'images' list is not a base64 image: '{img_data[:5]}'", 402
+            return f"Entry in 'images' list is not a base64 image: '{img_data[:5]}'", 400
         
         decoded_img = b64decode(img_base64)
-        img = Image.open(BytesIO(decoded_img))
+        try:
+            img = Image.open(BytesIO(decoded_img))
+        except UnidentifiedImageError:
+            return "Unsupported file extension. Use .jpg or .png", 400 
+            
+        if img.mode == 'RGBA':
+            img = img.convert("RGB")
+        elif img.mode == 'CMYK':
+            img = img.convert('CMYK')
+        elif not img.mode == 'RGB':
+            return f"Unsupported color mode {img.mode}. Accepted: RGB, RGBA and CMYK", 400
         
         # Smart resize crops and resizes as to maintain the original image's aspect ratio
         resized_img = tf.keras.preprocessing.image.smart_resize(img, ((160, 160)))
         img_arr = tf.keras.utils.img_to_array(resized_img)
+        if len(img_arr.shape) == 2:
+            return f"Image has a single color channel. Expected RGB.", 400
         
         img_batch.append(img_arr)
         
@@ -54,7 +68,7 @@ def classify():
         
     # Convert numpy array batch to tensor to feed to model
     input_batch = tf.convert_to_tensor(img_batch, dtype=tf.float32)
-    predictions = model.predict(input_batch)
+    predictions = model.predict(input_batch, verbose=False)
     
     image_tags = []
     for prediction in predictions:
@@ -81,7 +95,7 @@ def classify():
             tags.append("Unknown")
         
         image_tags.append(tags)
-    
+    print(f'{image_tags=}')
     return { "tags": image_tags }, 200
 
 if __name__ == '__main__':
