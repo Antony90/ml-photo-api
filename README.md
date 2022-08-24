@@ -3,9 +3,81 @@
 ## Summary 
 
 Keras model to classify images by 36 Camera Scenes typically found in mobile gallery apps, used for image tagging. This is inspired by the [Mobile AI 2021 Real-Time Camera Scene Detection Challenge](https://competitions.codalab.org/competitions/28113).
-I created my own dataset of 9445 images, using Google Image Search results for each category. 
+I created my own dataset of 9445 images, using Google Image Search results for each category.
 
-## Usage
+The result is a REST API to tag images in batch. I used this in my AI-assisted [Smart Gallery app](https://github.com/Antony90/smart-gallery/) to
+automatically tag user submitted images.
+
+## API Usage
+
+`py api/server.py` to start Flask's http server.
+
+### Batch Classify Images
+
+| Description | Get a list of scene classifications for a batch of images provided |
+|-------------|--------------------------------------------------------------------|
+| Endpoint    | `/classify/`                                                        |
+| HTTP Method | `POST`                                                               |
+| Request data| JSON string - Array of Base 64 encoded images                       |
+|Response data| JSON string - Array of tag arrays corresponding to request data order. Tags are capitalized|
+
+### Example
+
+```js
+client.post("/classify", {
+    images: [
+        "YXNrZGpoZm9pcC...",
+        "0pcTNuNHB2dALa..."
+        // ...
+    ]
+}).then(resp => {
+    const data = resp.data;
+
+    // console.log(data);
+    {
+        tags: [
+            ['Nature', 'Coast'],
+            ['Portrait', 'Family'],
+            // ...
+        ]
+    }
+}
+```
+
+### Formula for selecting multiple tags
+
+Since the keras model uses softmax activation on the output layer, each node's value is the probability of it falling under 
+one of the image scene classes. The highest probability node represents the model's most confident prediction. 
+
+We can look for more than one tag when the highest probability falls below 90%. When there is no significant difference
+between the top few output probabilities, the tag `Unknown` is assigned.
+
+```py
+        # Formula for picking a "good" set of image tags    
+        tags = []
+        
+        # If top tag has 90% probability, select it only
+        if top2_pairs[0][1] > 0.9:
+            tags.append(top2_pairs[0][0])
+        # When top 2 sum to at least 50%, choose both
+        elif top2_pairs[0][1] + top2_pairs[1][1] > 0.5:
+            tags.append(top2_pairs[0][0])
+            tags.append(top2_pairs[1][0])
+        else:
+            tags.append("Unknown")
+```
+
+### Errors
+
+| Description                                   | Error Code |
+|-----------------------------------------------|------------|
+| Missing parameter 'images'                    | 400        |
+| Bad format: 'images' parameter must be a list | 400        |
+| Entry in 'images' list is not a base64 image  | 400        |
+| Unsupported file extension. Use .jpg or .png  | 400        |
+| Unsupported color mode. Accepted: RGB, RGBA and CMYK | 400 |
+---
+## Script Usage
 
 `py ./dataset/gen_dataset.py` to generate the images for the dataset provided `./dataset/chromedriver.exe` exists.
 
