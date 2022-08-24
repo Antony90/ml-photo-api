@@ -16,6 +16,7 @@ model = tf.keras.models.load_model('./models/loss__0.33__acc__0.74')
 print(f"Loaded model")
 with open('./dataset/categories.json', 'r') as f:
     categories = json.loads(f.read())
+    categories = list(map(str.capitalize, categories))
 
 app = Flask(__name__)
 CORS(app)
@@ -53,7 +54,7 @@ def classify():
             img = img.convert("RGB")
         elif img.mode == 'CMYK':
             img = img.convert('CMYK')
-        elif not img.mode == 'RGB':
+        # elif not img.mode == 'RGB':
             return f"Unsupported color mode {img.mode}. Accepted: RGB, RGBA and CMYK", 400
         
         # Smart resize crops and resizes as to maintain the original image's aspect ratio
