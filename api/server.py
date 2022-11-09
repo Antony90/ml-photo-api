@@ -2,6 +2,8 @@ from flask import Flask, request
 from flask_cors import CORS
 
 import os
+
+from api.util.image import base64_img_to_array
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 import numpy as np
@@ -39,23 +41,10 @@ def classify():
     
     # Convert images from encoded base64 to np array format 
     for img_data in img_list:
-        try:
-            img_base64 = img_data.split(",")[1]
-        except AttributeError:
-            return f"Entry in 'images' list is not a base64 image: '{img_data[:5]}'", 400
-        
-        decoded_img = b64decode(img_base64)
-        try:
-            img = Image.open(BytesIO(decoded_img))
-        except UnidentifiedImageError:
-            return "Unsupported file extension. Use .jpg or .png", 400 
-            
-        if img.mode == 'RGBA':
-            img = img.convert("RGB")
-        elif img.mode == 'CMYK':
-            img = img.convert('CMYK')
-        # elif not img.mode == 'RGB':
-            return f"Unsupported color mode {img.mode}. Accepted: RGB, RGBA and CMYK", 400
+        try: 
+            base64_img_to_array(img_data)
+        except Exception as e:
+            print(e.args)
         
         # Smart resize crops and resizes as to maintain the original image's aspect ratio
         resized_img = tf.keras.preprocessing.image.smart_resize(img, ((160, 160)))

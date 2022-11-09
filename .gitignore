@@ -4,3 +4,5 @@ dataset/chromedriver.exe
 /local/
 __pycache__
 models/*
+.env
+*.jpg
