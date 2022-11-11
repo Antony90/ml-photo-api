@@ -1,10 +1,13 @@
+from collections import defaultdict
 from random import choice
 
 import numpy as np
-from face_recognition import (batch_face_locations, compare_faces,
+from sklearn.cluster import AgglomerativeClustering
+from face_recognition import (compare_faces,
                               face_encodings)
 
-from api.util.image import base64_img_to_array
+from .image import base64_img_to_array
+from .models import FaceEncoding
 
 db = None
 
@@ -15,7 +18,7 @@ def get_face_encodings(b64_imgs: list[str]) -> list[list[np.ndarray]]:
     in the image.
 
     Args:
-        b64_imgs (list[str]): List of base 64 images
+        b64_imgs (list[str]): List of base 64 images with faces
 
     Returns:
         list[list[np.ndarray]]: List of face encodings for each image. \n
@@ -26,93 +29,95 @@ def get_face_encodings(b64_imgs: list[str]) -> list[list[np.ndarray]]:
         img = base64_img_to_array(b64_img)
 
         # One encoding for each face in the image
-        encodings = face_encodings(img)
+        encodings = face_encodings(img, model="small")
+        assert len(encodings) != 0
         img_encodings.append(encodings)
 
     return img_encodings
 
 
 def match_img_encodings_to_people(
-    encodings: list[np.ndarray],
-    people: dict[int, list[np.ndarray]]
-) -> tuple[list[np.ndarray], dict[int, list[np.ndarray]]]:
+    face_encodings: list[FaceEncoding],
+    people: dict[str, list[FaceEncoding]]
+) -> tuple[list[FaceEncoding], dict[str, list[FaceEncoding]]]:
     """
     Matches a list of encodings of faces from an image 
     to the people they relate to. This involves calculating
     the distance between each encoding of a person and each 
     encoding in `encodings`. If below a threshold,
-    the encoding is added to the person's encoding list.
+    the encoding is added to the person's face list.
 
     Some encodings may be unmatched, and are collected as the
-    first element in the returned tuple.
+    first element in the returned tuple. These are later used
+    to create a new person/several new people.
 
     Args:
-        encodings (list[np.ndarray]): 
-            List of face encodings for each face in an image.
-        people: (dict[int, list[np.ndarray]])): 
+        face_encodings (list[FaceEncoding]): 
+            List of face encodings to be matched.
+        people: (dict[str, list[FaceEncoding]]): 
             Mapping from person id to list of face encodings which are similar to each other.
 
     Returns:
-        `tuple[list[np.ndarray], dict[int, list[np.ndarray]]]`: Tuple of unmatched encodings and updated mapping from person id to similar encodings.
+        `tuple[list[FaceEncoding], dict[str, list[FaceEncoding]]]`: 
+            Tuple of unmatched encodings and updated mapping from person id to their face encodings.
     """
     # Initially all encodings are unmatched
-    matched_encs = [False for _ in range(len(encodings))]
-    for person_id, person_encs in people.items():
+    matched_faces = [False for _ in range(len(face_encodings))]
+    new_people_faces = defaultdict(list)
+    for person_id, person_faces in people.items():
         # Since `encodings` comes from one image (with at least one detected face),
         # if any encoding from `encodings` matches any encoding
         # person_encoding in `person_encs`, add the `encodings` to the
         # list under `person_id` dict key
-        for i, enc in enumerate(encodings):
-            if any(compare_faces(person_encs, enc)):
-                person_encs.append(enc)
+        for i, face in enumerate(face_encodings):
+            person_encodings = [face.encoding for face in person_faces]
+            # If enc matches any face encodings for the person, add to new_people_faces dict
+            if any(compare_faces(person_encodings, face.encoding)):
+                new_people_faces[person_id].append(face)
+            else:
                 # Mark encoding as being matched to a person
-                matched_encs[i] = True
-        people[person_id] = person_encs
+                matched_faces[i] = True
 
-    unmatched_encodings = [encodings[i] for (
-        i, is_matched) in enumerate(matched_encs) if not is_matched]
+    # These encodings will create a new person/several new people
+    unmatched_faces = [face_encodings[i] for (
+        i, is_matched) in enumerate(matched_faces) if not is_matched]
 
-    return unmatched_encodings, people
+    return unmatched_faces, new_people_faces
 
 
 def handle_unmatched_encodings(
-    encodings: list[np.ndarray], 
-    people: dict[int, list[np.ndarray]]
-) -> dict[int, list[np.ndarray]]:
-    """These encodings do not match any person's face.
-    They must be the encodings of `len(encodings)` unique faces
-    since similar encodings in the same image are already removed.
-    
+    faces: list[FaceEncoding],
+    num_existing_people: int
+) -> dict[str, list[FaceEncoding]]:
+    """These encodings do not match any existing person's face.
+    Group them using hierarchical clustering with Euclidean distance
+    as a metric and a distance threshold of 0.6.
+
     Args:
-        encodings: Face encodings which do not match any person's face
-        people: dict mapping person to a list of similar face encodings
-            
-    Returns:
-        Updated person-encoding list mappings where each unmatched encoding is assigned to a new person"""
-    next_person_id = max(people.keys()) + 1
-    for i in range(len(encodings)):
-        # Create a mapping from a new person to a singleton encoding
-        people[next_person_id + i] = [encodings[i]]
-        
-    return people
+        num_existing_people: 
+            int number of people already in database, used to assign numbers to new people
+    """
+    samples = np.array([face.encoding for face in faces])
+    clustering = AgglomerativeClustering(
+        n_clusters=None,
+        affinity="euclidean",
+        distance_threshold=0.6
+    ).fit(samples)
+
+    # Grouped images represent a single person
+    people = clustering.labels_
+    people_faces = defaultdict(list)
+    for i, person_num in enumerate(people):
+        name = f'Person {person_num + num_existing_people + 1}'
+        people_faces[name].append(faces[i])
+    return people_faces
 
 
-"""
-User {
-    id: string
-}
-
-`encodings` collection has documents:
-Encoding {
-    user_id: string,
-    id: string (photo id)
-    person_id: references Person(id),
-    encoding: binary
-}
-
-`people` collection has documents:
-Person {
-    id: string,
-    user_id: string references User(id)
-}
-"""
+if __name__ == "__main__":
+    enc1 = face_encodings("./api/util/elon-large.jpg")[0]
+    enc2 = face_encodings("./api/util/elon-small.jpg")[0]
+    faces = [
+        FaceEncoding(id='id1', encoding=enc1),
+        FaceEncoding(id='id2', encoding=enc2),
+    ]
+    handle_unmatched_encodings(faces)

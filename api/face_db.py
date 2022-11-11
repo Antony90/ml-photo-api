@@ -79,11 +79,11 @@ class FaceDatabase:
             {'$push': {'people': person_id}}
         ).modified_count == 1
 
-    def create_person(self) -> str:
+    def create_person(self, name: str) -> str:
         '''
         Create a new person and return its unique id.
         '''
-        return self.db.people.insert_one({'encodings': []}).inserted_id
+        return self.db.people.insert_one({'name': name, 'encodings': []}).inserted_id
 
     def insert_encodings(self, person_id: str, face_encs: list[FaceEncoding]):
         '''
@@ -120,6 +120,9 @@ class FaceDatabase:
                 people_face_encodings[person_id] = [
                     FaceEncoding.from_dict(face_enc) for face_enc in face_encodings]
         return people_face_encodings
+    
+    def set_person_name(nanme: str):
+        raise NotImplemented
 
 
 if __name__ == '__main__':
@@ -134,7 +137,7 @@ if __name__ == '__main__':
 
     db.create_user(user_id)
     print("Created user")
-    person_id = db.create_person()
+    person_id = db.create_person('Elon Musk')
     print(f"Created {person_id=}")
     db.add_person(user_id, person_id)
     print("Added person to user")
