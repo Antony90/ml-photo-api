@@ -4,39 +4,41 @@ from random import choice
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
 from face_recognition import (compare_faces,
-                              face_encodings)
+                              face_encodings, face_landmarks)
 
-from .image import base64_img_to_array
-from .models import FaceEncoding
-
-db = None
+from util.image import base64_img_to_array
+from util.models import FaceEncoding
 
 
-def get_face_encodings(b64_imgs: list[str]) -> list[list[np.ndarray]]:
+def get_face_encodings(images: list[dict[str, str]]) -> list[FaceEncoding]:
     """Converts a base-64 image into np array and
     finds the face encoding output for every face
     in the image.
 
     Args:
-        b64_imgs (list[str]): List of base 64 images with faces
+        images (list[dict[str, str]]): List of dictionaries with attributes 
+            'image' - base 64 image with faces \n
+            'id' - image id
 
     Returns:
-        list[list[np.ndarray]]: List of face encodings for each image. \n
-        If an image has no face, its entry in the outer list is an empty list.
+        list[FaceEncoding]: List of face encodings for each face in every image. \n
+        All images are assumed to have a face. If not, procedure still exits peacefully.
     """
-    img_encodings = []
-    for b64_img in b64_imgs:
-        img = base64_img_to_array(b64_img)
+    face_encodings_list = []
+    for img in images:
+        img_arr = base64_img_to_array(img['image'])
 
-        # One encoding for each face in the image
-        encodings = face_encodings(img, model="small")
+        # Find face encodings for each face in the image
+        encodings = face_encodings(img_arr, model="small")
         assert len(encodings) != 0
-        img_encodings.append(encodings)
 
-    return img_encodings
+        faces = [FaceEncoding(id=img['id'], encoding=enc) for enc in encodings]
+        face_encodings_list.extend(faces)
+
+    return face_encodings_list
 
 
-def match_img_encodings_to_people(
+def match_face_encodings_to_people(
     face_encodings: list[FaceEncoding],
     people: dict[str, list[FaceEncoding]]
 ) -> tuple[list[FaceEncoding], dict[str, list[FaceEncoding]]]:
@@ -85,7 +87,7 @@ def match_img_encodings_to_people(
     return unmatched_faces, new_people_faces
 
 
-def handle_unmatched_encodings(
+def cluster_unmatched_encodings(
     faces: list[FaceEncoding],
     num_existing_people: int
 ) -> dict[str, list[FaceEncoding]]:
@@ -113,11 +115,15 @@ def handle_unmatched_encodings(
     return people_faces
 
 
+def has_face(imgs: list[np.ndarray]):
+    return [i for i, face_boxes in enumerate([face_landmarks(img) for img in imgs]) if face_boxes is not []]
+
+
 if __name__ == "__main__":
-    enc1 = face_encodings("./api/util/elon-large.jpg")[0]
-    enc2 = face_encodings("./api/util/elon-small.jpg")[0]
+    enc1 = face_encodings("util/elon-large.jpg")[0]
+    enc2 = face_encodings("util/elon-small.jpg")[0]
     faces = [
         FaceEncoding(id='id1', encoding=enc1),
         FaceEncoding(id='id2', encoding=enc2),
     ]
-    handle_unmatched_encodings(faces)
+    cluster_unmatched_encodings(faces)

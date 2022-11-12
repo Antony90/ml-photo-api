@@ -1,10 +1,10 @@
 from typing import Union
 import numpy as np
 from pymongo import ASCENDING, HASHED, TEXT, MongoClient, IndexModel
+from werkzeug.exceptions import InternalServerError
 from pymongo.database import Database
 from dotenv import load_dotenv
 from os import environ
-
 from util.models import FaceEncoding
 env = environ
 load_dotenv()
@@ -65,7 +65,7 @@ class FaceDatabase:
         return db
 
     def create_user(self, user_id: str):
-        self.db.users.insert_one({'user_id': user_id, 'people': []})
+        return self.db.users.insert_one({'user_id': user_id, 'people': []}).inserted_id
 
     def add_person(self, user_id: str, person_id: str) -> bool:
         '''Inserts a person under the specified user. 
@@ -106,7 +106,7 @@ class FaceDatabase:
         '''
         user_doc = self.db.users.find_one({'user_id': user_id})
         if user_doc is None:
-            raise Exception("User not found: %s" % user_id)
+            return None
         people_face_encodings = dict()
 
         for person_id in user_doc['people']:
