@@ -1,10 +1,44 @@
 import json
 from dataclasses import dataclass
 from typing import Union
-from bson import ObjectId
 
 import numpy as np
+from bson import ObjectId
+from pydantic import BaseModel, Field
 
+
+# Used excludively as a schema for api responses
+class PersonFaces(BaseModel):
+    name: str = Field(description="Name of person, defaults to 'Person X'")
+    id: str = Field(description="ID of the person")
+    image_ids: list[str] = Field(description="IDs of images which match this person")
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "id": "657025ad29e5e30a76e85a3f",
+                "name": "Person 1",
+                "image_ids": [
+                    "5kx3a233lv",
+                    "04gja5lcp9"
+                ]
+            }
+        }
+        
+class Image(BaseModel):
+    data: str = Field(description="Image encoded in base64 format, containing at least one face")
+    id: str = Field(description="(external) ID of the image")
+
+class ClassifyResult(BaseModel):
+    tags: list[str] = Field(description="Tags assigned to the corresponding input image")
+    has_face: bool = Field(description="Whether the corresponding input image has a face")
+    class Config:
+        schema_extra = {
+            "example": {
+                "tags": ['Family', 'Landmark', 'Building'],
+                "has_face": True
+            }
+        }
 
 @dataclass
 class FaceEncoding:

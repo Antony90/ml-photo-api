@@ -6,8 +6,8 @@ import tensorflow as tf
 
 class ImageSceneClassifier:
     def __init__(self,
-                 model_path='./models/loss__0.33__acc__0.74',
-                 categories_path='./dataset/categories.json'):
+                 model_path='api/scene-classifier',
+                 categories_path='dataset/categories.json'):
         self.model = tf.keras.models.load_model(model_path)
         with open(categories_path, 'r') as f:
             categories = json.loads(f.read())

@@ -7,19 +7,17 @@ from sklearn.cluster import AgglomerativeClustering
 from face_recognition import (compare_faces,
                               face_encodings, face_landmarks)
 
-from util.image import base64_img_to_array
-from util.models import FaceEncoding, Person
+from .util.image import base64_img_to_array
+from .util.models import FaceEncoding, Image, Person, PersonFaces
 
 
-def get_face_encodings(images: list[dict[str, str]]) -> list[FaceEncoding]:
+def get_face_encodings(images: list[Image]) -> list[FaceEncoding]:
     """Converts a base-64 image into np array and
     finds the face encoding output for every face
     in the image.
 
     Args:
-        images (list[dict[str, str]]): List of dictionaries with attributes 
-            'image' - base 64 image with faces \n
-            'id' - image id
+        images (list[Image]): List of images
 
     Returns:
         list[FaceEncoding]: List of face encodings for each face in every image. \n
@@ -27,13 +25,13 @@ def get_face_encodings(images: list[dict[str, str]]) -> list[FaceEncoding]:
     """
     face_encodings_list = []
     for img in images:
-        img_arr = base64_img_to_array(img['image'])
+        img_arr = base64_img_to_array(img.data)
 
         # Find face encodings for each face in the image
         encodings = face_encodings(img_arr, model="small")
         assert len(encodings) != 0
 
-        faces = [FaceEncoding(image_id=img['id'], encoding=enc)
+        faces = [FaceEncoding(image_id=img.id, encoding=enc)
                  for enc in encodings]
         face_encodings_list.extend(faces)
 
@@ -126,16 +124,25 @@ def has_face(imgs: list[np.ndarray]):
     return [i for i, face_boxes in enumerate([face_landmarks(img) for img in imgs]) if face_boxes is not []]
 
 
-def to_person_img_ids(people: dict[Person, list[FaceEncoding]]) -> list[dict[str, Union[str, list[str]]]]:
+def to_person_img_ids(people: dict[Person, list[FaceEncoding]]) -> list[PersonFaces]:
     """Convert a dict from person id to face list into a list of dicts
     with `name` and `image_ids` attributes."""
     return [
-        {
-            'name': person.name,
-            'id': str(person.id),
-            'image_ids': [enc.image_id for enc in encodings]
-        }
-        for person, encodings in people.items()]
+        PersonFaces(
+            name=person.name,
+            id=str(person.id), 
+            image_ids=[enc.image_id for enc in encodings]
+        )
+        for person, encodings in people.items()
+    ]
+    # [
+    #     {
+    #         'name': person.name,
+    #         'id': str(person.id),
+    #         'image_ids': [enc.image_id for enc in encodings]
+    #     }
+    #     for person, encodings in people.items()
+    # ]
 
 
 if __name__ == "__main__":
