@@ -145,12 +145,12 @@ class FaceDatabase:
             {'_id': person_oid}, { '$set': { 'name': name }}).modified_count
         return num_updated == 1
 
-    def delete_user_image(self, user_id: str, image_id: str):
+    def delete_user_image(self, user_id: str, image_id: str) -> list[ObjectId]:
         with self.session.start_transaction():
             image_doc = self.db.images.find_one_and_delete(
                 {'user_id': user_id, 'image_id': image_id}, {'people': 1})
             if image_doc is None:
-                return False
+                return []
             people: list[ObjectId] = image_doc['people']
             # Remove the image from each person
             for person_id in people:
@@ -165,7 +165,10 @@ class FaceDatabase:
                 if len(updated_person_doc['encodings']) == 0:
                     self.db.people.delete_one({ '_id': person_id })
                     self.db.users.update_one({'user_id': user_id}, {'$pull': { 'people': person_id }})
-        return True
+                    
+            # Returns the person ids of people whose photos were deleted
+            # Since a single photo can have multiple faces, multiple people can be updated
+        return people 
 
     def insert_image_person(self, face_encs: list[FaceEncoding], user_id: str, person_id: ObjectId):
         # Store person under each image to make image deletion easier
@@ -178,6 +181,7 @@ class FaceDatabase:
                                       '$addToSet': {'people': person_id}}, upsert=True)
             except OperationFailure as err:
                 raise HTTPException(status_code=500, details=str(err.details))
+            
     def get_user_image_ids(self, user_id) -> list[str]:
         return [ img_doc['image_id'] for img_doc in self.db.images.find({ 'user_id': user_id }) ]
         
