@@ -29,7 +29,8 @@ def get_face_encodings(images: list[Image]) -> list[FaceEncoding]:
 
         # Find face encodings for each face in the image
         encodings = face_encodings(img_arr, model="small")
-        assert len(encodings) != 0
+        if len(encodings) == 0:
+            print(img.id)
 
         faces = [FaceEncoding(image_id=img.id, encoding=enc)
                  for enc in encodings]

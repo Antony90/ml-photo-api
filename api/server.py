@@ -26,7 +26,9 @@ success = lambda: {'msg': 'Success'}
 classifier = ImageSceneClassifier()
 face_db = FaceDatabase(local=False, reset=True)
 
-
+@app.post('/reset')
+def delete():
+    face_db.reset()
 
 @app.post('/faces/{user_id}/process', 
           status_code=status.HTTP_201_CREATED, tags=['Face'], 

@@ -42,14 +42,27 @@ Person {
 
 class FaceDatabase:
     def __init__(self, local: bool, reset: bool = False):
+        self.db, self.session = self.init_db(local, reset)
         if reset:
             from time import sleep
-            print("!! DELETING ALL COLLECTIONS 5 SECONDS TO CANCEL !!")
-            sleep(5)
-        self.db, self.session = self.init_db(local, reset)
+            print("!! DELETING ALL COLLECTIONS !!")
+            self.reset()
 
     def __del__(self):
         self.session.end_session()
+        
+    def reset(self):
+        'Recreate collections and indexes'
+        print("Recreating collections and indexes...", end=" ")
+        self.db.drop_collection('users')
+        self.db.drop_collection('people')
+        self.db.drop_collection('images')
+        unique_user_id = IndexModel([("user_id", TEXT)], unique=True)
+        self.db.create_collection('users').create_indexes([unique_user_id])
+        self.db.create_collection('people')
+        unique_image_id = IndexModel([("image_id", TEXT)], unique=True)
+        self.db.create_collection('images')
+        print("done!")
 
     def init_db(self, local: bool, reset: bool) -> tuple[Database, ClientSession]:
         # MongoDB Atlas URL to connect pymongo to database
@@ -58,19 +71,6 @@ class FaceDatabase:
 
         client = MongoClient(connection_string)
         db = client['faces' if local else env['DB']]
-
-        if reset:
-            'Recreate collections and indexes'
-            print("Recreating collections and indexes...", end=" ")
-            db.drop_collection('users')
-            db.drop_collection('people')
-            db.drop_collection('images')
-            unique_user_id = IndexModel([("user_id", TEXT)], unique=True)
-            db.create_collection('users').create_indexes([unique_user_id])
-            db.create_collection('people')
-            unique_image_id = IndexModel([("image_id", TEXT)], unique=True)
-            db.create_collection('images')
-            print("done!")
         return db, client.start_session()
 
     def create_user(self, user_id: str):
