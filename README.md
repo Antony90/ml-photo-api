@@ -8,17 +8,20 @@ I created my own dataset of 9445 images, using Google Image Search results for e
 The result is a REST API to tag images in batch. I used this in my AI-assisted [Smart Gallery app](https://github.com/Antony90/smart-gallery/) to
 automatically tag user submitted images.
 
+
 ## API Usage
 
-`py api/server.py` to start Flask's http server.
+`uvicorn api.server:app` to start FastAPI REST server. Tested with python 3.9 and 3.11.
+
+See https://localhost/docs for API documentation.
 
 ### Batch Classify Images
 
 | Description | Get a list of scene classifications for a batch of images provided |
 |-------------|--------------------------------------------------------------------|
-| Endpoint    | `/classify/`                                                        |
-| HTTP Method | `POST`                                                               |
-| Request data| JSON string - Array of Base 64 encoded images                       |
+| Endpoint    | `/classify/`                                                       |
+| HTTP Method | `POST`                                                             |
+| Request data| JSON string - Array of Base 64 encoded images                      |
 |Response data| JSON string - Array of tag arrays corresponding to request data order. Tags are capitalized|
 
 ### Example
@@ -30,9 +33,7 @@ client.post("/classify", {
         "0pcTNuNHB2dALa..."
         // ...
     ]
-}).then(resp => {
-    const data = resp.data;
-
+}).then(({ data }) => {
     // console.log(data);
     {
         tags: [
@@ -41,7 +42,7 @@ client.post("/classify", {
             // ...
         ]
     }
-}
+})
 ```
 
 ### Formula for selecting multiple tags

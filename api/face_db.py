@@ -44,12 +44,9 @@ class FaceDatabase:
     def __init__(self, local: bool, reset: bool = False):
         self.db, self.session = self.init_db(local, reset)
         if reset:
-            from time import sleep
             print("!! DELETING ALL COLLECTIONS !!")
             self.reset()
 
-    def __del__(self):
-        self.session.end_session()
         
     def reset(self):
         'Recreate collections and indexes'
