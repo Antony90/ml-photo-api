@@ -1,13 +1,15 @@
-# Image Scene Classifier
+# Face Identification and Image Classifier REST API
+A REST API to carry out face identification and image classification tasks for my AI-assisted [Smart Gallery app](https://github.com/Antony90/smart-gallery/).
+Written in Python using FastAPI. Uses dlib for face identification, and tensorflow for image classification.
 
 ## Summary 
 
 Keras model to classify images by 36 Camera Scenes typically found in mobile gallery apps, used for image tagging. This is inspired by the [Mobile AI 2021 Real-Time Camera Scene Detection Challenge](https://competitions.codalab.org/competitions/28113).
 I created my own dataset of 9445 images, using Google Image Search results for each category.
 
-The result is a REST API to tag images in batch. I used this in my AI-assisted [Smart Gallery app](https://github.com/Antony90/smart-gallery/) to
-automatically tag user submitted images.
+The dlib Python library is used to generate vector embeddings of faces within images, to allow for grouping of similar faces and face identification from new images, using a clustering algorithm.
 
+The result is a REST API which supports my ML [Smart Gallery app](https://github.com/Antony90/smart-gallery/).
 
 ## API Usage
 
@@ -157,7 +159,7 @@ Images are classified into the following 36 classes:
 
 
 ---
-## Model Architecture
+## Classification Model Architecture
 
 I implemented transfer learning using [MobileNetV2](https://arxiv.org/abs/1801.04381v4) for the base model. Input shape: `(160, 160, 3)`. Output shape: `(36, 1)`.
 
